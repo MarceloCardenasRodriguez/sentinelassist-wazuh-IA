@@ -1,0 +1,25 @@
+services:
+  api:
+    build: ./backend
+    container_name: sentinelassist-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Opcional: define esta variable para activar la Etapa 3 (LLM) real.
+      # Si se deja vacía, el sistema degrada de forma segura a la Etapa 2 (ML).
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: sentinelassist-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    restart: unless-stopped

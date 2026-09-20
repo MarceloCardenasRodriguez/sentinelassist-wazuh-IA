@@ -1,0 +1,49 @@
+[
+  {
+    "nombre": "Falso positivo evidente (IP interna conocida, patrón frecuente)",
+    "alerta": {
+      "full_log": "syscheck: Integrity checksum changed for '/etc/passwd' by scheduled job",
+      "rule_id": 5501,
+      "rule_level": 7,
+      "rule_groups": ["syscheck"],
+      "srcip": "10.0.0.5",
+      "timestamp": "2026-09-17T10:00:00"
+    },
+    "veredicto_esperado": "falso_positivo",
+    "etapa_esperada": "logic"
+  },
+  {
+    "nombre": "Fuerza bruta SSH desde IP externa",
+    "alerta": {
+      "full_log": "sshd: Failed password for invalid user admin from 45.13.200.10 port 51422 ssh2",
+      "rule_id": 5710,
+      "rule_level": 10,
+      "rule_groups": ["authentication_failed"],
+      "srcip": "45.13.200.10",
+      "timestamp": "2026-09-17T03:14:00"
+    },
+    "veredicto_esperado": "depende del modelo (zona intermedia)",
+    "etapa_esperada": "ml o llm"
+  },
+  {
+    "nombre": "Alerta crítica de malware con ejecución remota",
+    "alerta": {
+      "full_log": "powershell -enc JABjAGwAaQBlAG4AdAA... invoke-expression, descarga desde 203.0.113.77",
+      "rule_id": 100010,
+      "rule_level": 15,
+      "rule_groups": ["malware"],
+      "srcip": "203.0.113.77",
+      "timestamp": "2026-09-17T02:40:00"
+    },
+    "veredicto_esperado": "verdadero_positivo",
+    "etapa_esperada": "ml o llm"
+  },
+  {
+    "nombre": "Log crudo pegado sin estructurar (flujo actual del analista)",
+    "alerta": {
+      "full_log": "Sep 17 03:14:02 web-prod-01 sshd[2211]: Failed password for invalid user test from 45.13.200.10 port 51422 ssh2 rule.level:10"
+    },
+    "veredicto_esperado": "el sistema extrae rule_level=10 e ip_origen=45.13.200.10 automáticamente del texto",
+    "etapa_esperada": "ml o llm"
+  }
+]
