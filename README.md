@@ -2,10 +2,7 @@
 
 Prototipo funcional desarrollado para la actividad evaluativa **"Diseño,
 Implementación y Evaluación de una Aplicación Web con Machine Learning en un
-Entorno Empresarial Real"**. El informe académico completo (contexto,
-diagnóstico, diseño, formalización lógica, algoritmo A\*, evaluación
-económica CAPEX/OPEX/ROI) se encuentra en el documento
-`Informe_SentinelAssist_Wazuh.docx` / `.pdf` entregado junto con este código.
+Entorno Empresarial Real"**.
 
 ## 1. Problema que resuelve
 
@@ -48,10 +45,12 @@ sentinelassist/
 │   ├── config.py            Lista blanca de IPs, categorías, keywords, umbrales
 │   ├── rules_engine.py      Motor de reglas (axiomas lógicos ejecutables)
 │   ├── feature_extraction.py Preprocesamiento de la alerta Wazuh
-│   ├── train_model.py       Genera dataset y entrena el clasificador (imprime métricas)
+│   ├── synthetic_data.py    Generador de dataset sintético compartido por ambos modelos
+│   ├── train_model.py       Entrena el clasificador de falsos positivos (Precision/Recall/F1)
+│   ├── train_regression_model.py Entrena el estimador de tiempo de revisión (MAE/RMSE/WMAPE)
 │   ├── llm_client.py        Integración opcional con la API de Anthropic (RAG simplificado)
 │   ├── schemas.py           Modelos Pydantic de entrada/salida
-│   ├── model/                Modelo entrenado (.joblib) — se genera al ejecutar train_model.py
+│   ├── model/                 2 modelos entrenados (.joblib) — se generan al entrenar
 │   ├── data/                 Tabla de frecuencia histórica + log de feedback
 │   └── Dockerfile
 ├── frontend/
@@ -97,7 +96,8 @@ source venv/bin/activate        # En Windows: venv\Scripts\activate
 # 2) Backend
 cd backend
 pip install -r requirements.txt
-python train_model.py           # entrena el modelo e imprime Precision/Recall/F1
+python train_model.py             # entrena el clasificador e imprime Precision/Recall/F1
+python train_regression_model.py  # entrena el estimador de tiempo e imprime MAE/RMSE/WMAPE
 uvicorn main:app --reload --port 8000
 
 # 3) En otra terminal: Frontend
@@ -153,16 +153,40 @@ sobre un 20% de datos de prueba (holdout):
 > específicamente para recolectar esas etiquetas reales en producción y
 > cerrar esa brecha.
 
+## 5bis. Modelo de regresión: tiempo de revisión manual estimado
+
+Además del clasificador, `train_regression_model.py` entrena un
+`GradientBoostingRegressor` que estima **cuántos minutos tardaría un
+analista humano** en revisar manualmente cada alerta si no existiera
+SentinelAssist. Este valor es el que sustenta el cálculo de horas-analista
+ahorradas y el ROI del informe (sección 4.4), y se devuelve en cada
+respuesta de `/api/v1/analyze` en el campo `tiempo_estimado_manual_minutos`
+(también visible en la interfaz Streamlit como una métrica ⏱️).
+
+Métricas reales obtenidas sobre el 20% de datos de prueba (holdout):
+
+| Métrica | Resultado obtenido |
+|---|---|
+| MAE (Error Absoluto Medio) | ≈ 0.47 minutos |
+| RMSE (Raíz del Error Cuadrático Medio) | ≈ 0.61 minutos |
+| WMAPE (Error Porcentual Absoluto Medio Ponderado) | ≈ 11.2% |
+
+Estas cifras son reproducibles ejecutando `python train_regression_model.py`
+y sí corresponden a un modelo real entrenado y evaluado (no son una
+proyección, a diferencia de las métricas de clasificación de la sección
+anterior, que sí distinguen entre resultado actual y meta de diseño).
+
 ## 6. Componentes tecnológicos utilizados
 
 | Componente | Herramienta |
 |---|---|
 | Backend / API RESTful | FastAPI + Uvicorn |
 | Frontend interactivo | Streamlit |
-| Machine Learning | Scikit-learn (RandomForestClassifier) |
+| Machine Learning (clasificación) | Scikit-learn (RandomForestClassifier) |
+| Machine Learning (regresión) | Scikit-learn (GradientBoostingRegressor) |
 | IA generativa (Etapa 3, opcional) | API de Anthropic (Claude) vía `requests` |
 | Contenerización | Docker / Docker Compose |
-| Pruebas | Pytest + FastAPI TestClient |
+| Pruebas | Pytest + FastAPI TestClient (7 pruebas) |
 
 ## 7. Próximos pasos (fuera del alcance de este prototipo académico)
 
