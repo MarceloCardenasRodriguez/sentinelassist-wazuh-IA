@@ -12,6 +12,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "model" / "clasificador_falsos_positivos.joblib"
+REGRESSION_MODEL_PATH = BASE_DIR / "model" / "estimador_tiempo_revision.joblib"
 FEEDBACK_LOG_PATH = BASE_DIR / "data" / "feedback_log.csv"
 FREQUENCY_TABLE_PATH = BASE_DIR / "data" / "frecuencia_reglas.csv"
 
@@ -43,8 +44,9 @@ CATEGORIAS_GRUPO = [
 # de que la alerta sea un verdadero positivo (heurística de contenido).
 PALABRAS_CLAVE_ATAQUE = [
     "powershell -enc", "mimikatz", "wget http", "curl http", "base64 -d",
-    "union select", "or 1=1", "/etc/passwd", "nc -e", "invoke-expression",
-    "certutil -urlcache", "nmap", "sqlmap", ".exe http", "rm -rf /",
+    "union select", "or 1=1", "cat /etc/passwd", "cat /etc/shadow", "nc -e",
+    "invoke-expression", "certutil -urlcache", "nmap", "sqlmap", ".exe http",
+    "rm -rf /",
 ]
 
 # Mapeo simplificado de rule.groups -> técnica MITRE ATT&CK más probable,

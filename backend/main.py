@@ -30,6 +30,7 @@ from config import (
     FEEDBACK_LOG_PATH,
     MAPA_ATTCK,
     MODEL_PATH,
+    REGRESSION_MODEL_PATH,
     ZONA_GRIS_MAX,
     ZONA_GRIS_MIN,
 )
@@ -49,10 +50,20 @@ async def lifespan(app: FastAPI):
             f"No se encontró el modelo entrenado en {MODEL_PATH}. "
             "Ejecuta 'python train_model.py' antes de iniciar la API."
         )
+    if not REGRESSION_MODEL_PATH.exists():
+        raise RuntimeError(
+            f"No se encontró el modelo de regresión en {REGRESSION_MODEL_PATH}. "
+            "Ejecuta 'python train_regression_model.py' antes de iniciar la API."
+        )
     bundle = load(MODEL_PATH)
     _modelo_bundle["modelo"] = bundle["modelo"]
     _modelo_bundle["columnas"] = bundle["columnas"]
-    logger.info("Modelo cargado correctamente desde %s", MODEL_PATH)
+
+    bundle_reg = load(REGRESSION_MODEL_PATH)
+    _modelo_bundle["modelo_tiempo"] = bundle_reg["modelo"]
+    _modelo_bundle["columnas_tiempo"] = bundle_reg["columnas"]
+
+    logger.info("Modelos cargados correctamente desde %s y %s", MODEL_PATH, REGRESSION_MODEL_PATH)
     yield
     _modelo_bundle.clear()
 
@@ -76,6 +87,19 @@ app.add_middleware(
 )
 
 
+import pandas as pd
+
+
+def _estimar_tiempo_manual(features: dict) -> float:
+    """Minutos que un analista humano habría tardado en revisar esta alerta
+    manualmente, según el modelo de regresión (Etapa complementaria de
+    evaluación económica, ver informe sección 4.4)."""
+    modelo_tiempo = _modelo_bundle["modelo_tiempo"]
+    columnas_tiempo = _modelo_bundle["columnas_tiempo"]
+    vector_df = pd.DataFrame([[features[c] for c in columnas_tiempo]], columns=columnas_tiempo)
+    return round(float(modelo_tiempo.predict(vector_df)[0]), 2)
+
+
 def _construir_explicacion_ml(proba: float, features: dict) -> str:
     variables_relevantes = []
     if features["rule_level"] >= 12:
@@ -97,6 +121,7 @@ def health():
     return {
         "status": "ok",
         "modelo_cargado": "modelo" in _modelo_bundle,
+        "modelo_tiempo_cargado": "modelo_tiempo" in _modelo_bundle,
         "llm_disponible": llm_client.llm_disponible(),
     }
 
@@ -113,6 +138,7 @@ def analyze_alert(alert: AlertInput):
 
     alert_dict = alert.model_dump()
     features = extraer_caracteristicas(alert_dict)
+    tiempo_estimado = _estimar_tiempo_manual(features)
 
     # ---- Etapa 1: motor de reglas lógicas ----
     resultado_reglas = rules_engine.evaluar(features)
@@ -128,12 +154,11 @@ def analyze_alert(alert: AlertInput):
             ),
             regla_aplicada=resultado_reglas.regla_aplicada,
             tecnica_attck=None,
+            tiempo_estimado_manual_minutos=tiempo_estimado,
             caracteristicas_extraidas=features,
         )
 
     # ---- Etapa 2: modelo de Machine Learning ----
-    import pandas as pd
-
     modelo = _modelo_bundle["modelo"]
     columnas = _modelo_bundle["columnas"]
     vector_df = pd.DataFrame([[features[c] for c in columnas]], columns=columnas)
@@ -152,6 +177,7 @@ def analyze_alert(alert: AlertInput):
             explicacion=resultado_llm.explicacion,
             regla_aplicada=None,
             tecnica_attck=resultado_llm.tecnica_attck,
+            tiempo_estimado_manual_minutos=tiempo_estimado,
             caracteristicas_extraidas=features,
         )
 
@@ -164,6 +190,7 @@ def analyze_alert(alert: AlertInput):
         explicacion=_construir_explicacion_ml(proba_verdadero, features),
         regla_aplicada=None,
         tecnica_attck=MAPA_ATTCK.get(features["rule_group"]),
+        tiempo_estimado_manual_minutos=tiempo_estimado,
         caracteristicas_extraidas=features,
     )
 

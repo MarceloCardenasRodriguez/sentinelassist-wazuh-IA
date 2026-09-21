@@ -43,6 +43,10 @@ class AnalysisResult(BaseModel):
     explicacion: str
     regla_aplicada: Optional[str] = None
     tecnica_attck: Optional[str] = None
+    tiempo_estimado_manual_minutos: float = Field(
+        description="Minutos que un analista humano habría tardado en revisar esta alerta manualmente, "
+                     "según el modelo de regresión (estimador_tiempo_revision). Es el indicador base del ROI."
+    )
     caracteristicas_extraidas: dict[str, Any]
 
 
