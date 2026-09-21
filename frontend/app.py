@@ -76,6 +76,7 @@ with st.sidebar:
         estado = requests.get(f"{api_url}/api/v1/health", timeout=3).json()
         st.success("API conectada ✅")
         st.write(f"Modelo cargado: {'sí' if estado['modelo_cargado'] else 'no'}")
+        st.write(f"Modelo de tiempo cargado: {'sí' if estado.get('modelo_tiempo_cargado') else 'no'}")
         st.write(f"LLM (Etapa 3) disponible: {'sí' if estado['llm_disponible'] else 'no (se usará ML como respaldo)'}")
     except requests.exceptions.RequestException:
         st.error("No se pudo conectar con la API. ¿Está corriendo `uvicorn main:app`?")
@@ -145,6 +146,14 @@ if resultado:
 
     if resultado.get("tecnica_attck"):
         st.info(f"**Técnica MITRE ATT&CK asociada:** {resultado['tecnica_attck']}")
+
+    tiempo_manual = resultado.get("tiempo_estimado_manual_minutos")
+    if tiempo_manual is not None:
+        st.metric(
+            "⏱️ Tiempo estimado de revisión manual (sin SentinelAssist)",
+            f"{tiempo_manual:.1f} min",
+            help="Estimado por el modelo de regresión (estimador_tiempo_revision) a partir de alertas históricas similares.",
+        )
 
     with st.expander("Ver características extraídas por el sistema"):
         st.json(resultado["caracteristicas_extraidas"])
