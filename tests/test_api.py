@@ -22,6 +22,7 @@ def test_health():
         body = r.json()
         assert body["status"] == "ok"
         assert body["modelo_cargado"] is True
+        assert body["modelo_tiempo_cargado"] is True
 
 
 def test_analyze_resuelto_por_reglas_falso_positivo():
@@ -42,6 +43,7 @@ def test_analyze_resuelto_por_reglas_falso_positivo():
         assert body["etapa"] == "logic"
         assert body["confianza"] == 1.0
         assert body["regla_aplicada"] is not None
+        assert body["tiempo_estimado_manual_minutos"] > 0
 
 
 def test_analyze_alta_severidad_resuelto_por_ml():
@@ -75,6 +77,33 @@ def test_analyze_log_crudo_sin_campos_estructurados():
         body = r.json()
         assert body["caracteristicas_extraidas"]["rule_level"] == 10
         assert body["caracteristicas_extraidas"]["ip_origen"] == "45.13.200.10"
+
+
+def test_tiempo_estimado_mayor_en_alertas_criticas():
+    """El modelo de regresión debe estimar más minutos de revisión manual
+    para una alerta crítica con indicadores de ataque que para una alerta
+    trivial resuelta por el motor de reglas."""
+    payload_trivial = {
+        "full_log": "syscheck: Integrity checksum changed for '/etc/passwd'",
+        "rule_id": 5501,
+        "rule_level": 5,
+        "srcip": "10.0.0.5",  # IP en lista blanca -> resuelta por reglas
+    }
+    payload_critica = {
+        "full_log": "powershell -enc JAB... invoke-expression mimikatz.exe",
+        "rule_id": 100010,
+        "rule_level": 15,
+        "rule_groups": ["malware"],
+        "srcip": "203.0.113.77",
+    }
+    with TestClient(app) as client:
+        r1 = client.post("/api/v1/analyze", json=payload_trivial)
+        r2 = client.post("/api/v1/analyze", json=payload_critica)
+        assert r1.status_code == 200 and r2.status_code == 200
+        tiempo_trivial = r1.json()["tiempo_estimado_manual_minutos"]
+        tiempo_critico = r2.json()["tiempo_estimado_manual_minutos"]
+        assert tiempo_trivial > 0 and tiempo_critico > 0
+        assert tiempo_critico > tiempo_trivial
 
 
 def test_example_endpoint():
